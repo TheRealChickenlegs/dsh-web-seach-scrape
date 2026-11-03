@@ -107,6 +107,23 @@ test('a long page is saved in full and previewed inline', async () => {
   }
 })
 
+test('an extraction that returns nothing carries the server warning', async () => {
+  const fake = await createFakeFirecrawl({ jsonWorks: false })
+  const cwd = mkdtempSync(path.join(tmpdir(), 'dsh-wss-extract-'))
+  try {
+    const tool = createScrapeTool(configFor({ firecrawlUrl: fake.url }))
+    const result = await tool.execute(
+      { urls: ['https://example.com'], formats: ['markdown'], extract: { prompt: 'title' } },
+      { agent: { cwd } }
+    )
+    assert.equal(validateValue(tool.output.schema, result).length, 0)
+    assert.match(result.pages[0].warning, /JSON extraction failed/)
+    assert.match(result.text, /Note: JSON extraction failed/)
+  } finally {
+    await fake.close()
+  }
+})
+
 test('web_map returns links and reports the total', async () => {
   const fake = await createFakeFirecrawl()
   const cwd = mkdtempSync(path.join(tmpdir(), 'dsh-wss-map-'))

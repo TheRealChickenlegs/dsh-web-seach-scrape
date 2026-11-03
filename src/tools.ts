@@ -95,7 +95,7 @@ function renderPage(page: ScrapePageResult, maxChars: number, index: number): st
   const bits: string[] = []
   if (page.statusCode !== undefined) bits.push(`HTTP ${page.statusCode}`)
   if (page.links !== undefined) bits.push(`${page.links.length} links`)
-  if (page.json !== undefined) bits.push('structured JSON')
+  if (page.json !== undefined && page.json !== null) bits.push('structured JSON')
   if (page.summary !== undefined) bits.push('summary')
   if (page.screenshotUrl !== undefined) bits.push(`screenshot: ${page.screenshotUrl}`)
   if (bits.length > 0) lines.push(bits.join(' · '))
@@ -111,6 +111,10 @@ function renderPage(page: ScrapePageResult, maxChars: number, index: number): st
     lines.push('```json')
     lines.push(JSON.stringify(page.json, null, 2).slice(0, maxChars))
     lines.push('```')
+  }
+  if (page.warning !== undefined) {
+    lines.push('')
+    lines.push(`Note: ${page.warning}`)
   }
   if (page.savedPath !== undefined) {
     lines.push('')
@@ -412,7 +416,8 @@ export const SCRAPE_OUTPUT = {
           links: { type: 'array', items: { type: 'string' } },
           screenshotUrl: { type: 'string' },
           savedPath: { type: 'string' },
-          error: { type: 'string' }
+          error: { type: 'string' },
+          warning: { type: 'string' }
         },
         required: ['url', 'ok']
       }

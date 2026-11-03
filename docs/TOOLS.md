@@ -62,7 +62,12 @@ Scrape one or many pages.
 | `max_chars` | integer | `maxInlineChars` | Inline characters per page. |
 
 Output: `ok`, `version`, `job_id?`, `timed_out?`, `total?`, `pages[]` (`url`, `ok`, `statusCode`,
-`title`, `markdown`, `html`, `links`, `summary`, `screenshotUrl`, `savedPath?`, `error?`), `text`.
+`title`, `markdown`, `html`, `links`, `summary`, `screenshotUrl`, `savedPath?`, `error?`,
+`warning?`), `text`.
+
+`warning` carries Firecrawl's own note when a requested format produced nothing — most often a
+`json` extraction on an instance without an LLM provider, which answers HTTP 200 with `json: null`
+and a warning instead of failing the whole scrape.
 
 A batch job that outlives `firecrawlJobTimeoutMs` returns `timed_out: true` with the live
 `job_id` and whatever pages completed.

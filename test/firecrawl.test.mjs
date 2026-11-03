@@ -126,6 +126,38 @@ test('a pinned v1 explains that extraction needs v2', async () => {
   }
 })
 
+test('an extraction that produced nothing is reported as a capability failure', async () => {
+  resetVersionCache()
+  resetCapabilityCache()
+  const fake = await createFakeFirecrawl({ jsonWorks: false })
+  try {
+    const caps = await probeCapabilities(configFor(fake.url), undefined, { force: true, probeFormats: true })
+    assert.equal(caps.formats.json, false)
+    assert.equal(typeof caps.formats.notes?.json, 'string')
+    assert.ok(caps.deprecations.some((line) => /Structured extraction/.test(line)))
+  } finally {
+    await fake.close()
+  }
+})
+
+test('a 5xx extraction failure names the extraction backend', async () => {
+  resetVersionCache()
+  const fake = await createFakeFirecrawl({ jsonStatus: 500 })
+  try {
+    await assert.rejects(
+      () =>
+        scrapePage(configFor(fake.url), undefined, 'https://example.com/g', {
+          urls: [],
+          formats: ['markdown'],
+          extract: { prompt: 'title' }
+        }),
+      /Structured extraction is the likely cause/
+    )
+  } finally {
+    await fake.close()
+  }
+})
+
 test('the summary format failure quotes the server reason', async () => {
   resetVersionCache()
   const fake = await createFakeFirecrawl({ summaryWorks: false })

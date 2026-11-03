@@ -68,7 +68,8 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       signal?.removeEventListener('abort', onAbort)
       resolve()
     }, ms)
-    if (typeof timer.unref === 'function') timer.unref()
+    // NOT unref'd: this timer is awaited foreground work (a job poll). Unref'd, a
+    // short-lived process would drain the event loop and exit mid-wait.
     const onAbort = () => {
       clearTimeout(timer)
       reject(new PluginError('Operation aborted', 'WEB_ABORTED', { cause: signal?.reason }))

@@ -173,6 +173,7 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 | `WEB_PROVIDER_AMBIGUOUS` | Another search/fetch plugin is registered and the `web` row does not pin one. Restate `searchProvider`/`fetchProvider` in the layer that wins. |
 | `web_fetch` fails but `web_search` works | The Firecrawl endpoint is wrong or the instance is down — run `web_status`. |
 | `summary` format returns HTTP 500 | Firecrawl's `summary` needs an LLM provider on the instance. Use `markdown`, or `extract`. |
+| `extract` returns no JSON, or HTTP 500 | Firecrawl runs JSON extraction through an LLM provider; without one it answers `json: null` with a warning (shown in the result) or a 500. Use `markdown`, or configure extraction on the Firecrawl side. |
 | `Structured extraction needs Firecrawl v2` | The instance only exposes v1. Set `firecrawlApiVersion` to `auto`/`v2`, or scrape as markdown. |
 | Crawl returns `timed_out: true` | The job is still running. Call `web_crawl` again with the returned `job_id`, or raise `firecrawlJobTimeoutMs`. |
 | `401`/`403` from either service | Set that service's API key on the plugin page, or export `SEARXNG_API_KEY` / `FIRECRAWL_API_KEY`. |

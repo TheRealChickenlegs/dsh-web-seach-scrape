@@ -195,6 +195,8 @@ export interface ScrapePageResult {
   savedPath?: string
   truncated?: boolean
   error?: string
+  /** The server's own note when a requested format produced nothing (e.g. json extraction failed). */
+  warning?: string
 }
 
 /** One crawl page. */

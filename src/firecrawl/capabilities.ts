@@ -105,7 +105,8 @@ async function probeFormat(
   version: 'v1' | 'v2',
   formats: unknown[],
   probeUrl: string,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  produced?: (data: Record<string, unknown>) => boolean
 ): Promise<{ ok: boolean; note?: string }> {
   const base = (config.firecrawlUrl ?? '').replace(/\/+$/, '')
   try {
@@ -117,7 +118,19 @@ async function probeFormat(
       retries: 0,
       ...(signal === undefined ? {} : { signal })
     })
-    if (response.ok) return { ok: true }
+    if (response.ok) {
+      if (produced === undefined) return { ok: true }
+      const data = (response.json as { data?: unknown } | undefined)?.data
+      const record = data !== null && typeof data === 'object' ? (data as Record<string, unknown>) : undefined
+      if (record !== undefined && produced(record)) return { ok: true }
+      // A 200 with nothing produced is a capability failure, not a success: a
+      // self-hosted instance without an LLM answers `json: null` plus a warning.
+      const warning = record === undefined ? undefined : errorBodyText(JSON.stringify({ error: record.warning }))
+      return {
+        ok: false,
+        note: warning ?? 'the instance returned no value for this format'
+      }
+    }
     const reason = errorBodyText(response.text)
     return { ok: false, ...(reason === undefined ? {} : { note: reason }) }
   } catch (error) {
@@ -150,13 +163,14 @@ async function probeFormats(
           version,
           [{ type: 'json', prompt: 'Return the page title.', schema: { type: 'object', properties: { title: { type: 'string' } } } }],
           probeUrl,
-          signal
+          signal,
+          (data) => data.json !== null && data.json !== undefined
         )
-      : await probeFormat(config, key, version, ['json'], probeUrl, signal)
+      : await probeFormat(config, key, version, ['json'], probeUrl, signal, (data) => data.json !== null && data.json !== undefined)
   formats.json = jsonProbe.ok
   if (!jsonProbe.ok && jsonProbe.note !== undefined) notes.json = jsonProbe.note
 
-  const summary = await probeFormat(config, key, version, ['summary'], probeUrl, signal)
+  const summary = await probeFormat(config, key, version, ['summary'], probeUrl, signal, (data) => typeof data.summary === 'string' && data.summary !== '')
   formats.summary = summary.ok
   if (!summary.ok && summary.note !== undefined) notes.summary = summary.note
 
@@ -227,8 +241,12 @@ export async function probeCapabilities(
     if (formats.summary === false) {
       deprecations.push('The `summary` format is unavailable on this instance (it needs an LLM provider).')
     }
-    if (formats.json === false && version === 'v1') {
-      deprecations.push('Structured extraction (`json`/extract) is only available on Firecrawl v2.')
+    if (formats.json === false) {
+      deprecations.push(
+        version === 'v1'
+          ? 'Structured extraction (`json`/extract) is only available on Firecrawl v2.'
+          : 'Structured extraction (`json`) produced no value on this instance; it needs an LLM provider on the Firecrawl side.'
+      )
     }
   }
 

@@ -152,6 +152,9 @@ const V2_ONLY = 'both'
  *   summaryWorks    whether the `summary` format succeeds (default false, like an
  *                   instance without an LLM provider)
  *   apiKey          when set, a request without `Authorization: Bearer <key>` is 401
+ *   jsonWorks       whether structured extraction returns a value (default true;
+ *                   false mimics an instance whose LLM provider is unconfigured)
+ *   jsonStatus      respond with this status for a json/extract request instead
  *   batchDelayPolls number of polls before a batch job reports completed (default 1)
  *   crawlDelayPolls number of polls before a crawl reports completed (default 1)
  *   missing         array of "<version>:<op>" entries to answer 404 for
@@ -181,9 +184,21 @@ export async function createFakeFirecrawl(options = {}) {
         else if (format === 'links') data.links = [`${url}#one`, `${url}#two`]
         else if (format === 'screenshot') data.screenshot = `http://127.0.0.1/screenshot.png`
         else if (format === 'summary') data.summary = `Summary of ${url}`
-        else if (format === 'json') data.json = { title: `Title of ${url}` }
+        else if (format === 'json') {
+          if (options.jsonWorks === false) {
+            data.json = null
+            data.warning = 'JSON extraction failed: Unauthorized'
+          } else {
+            data.json = { title: `Title of ${url}` }
+          }
+        }
       } else if (format && typeof format === 'object' && format.type === 'json') {
-        data.json = { title: `Title of ${url}`, extracted: true }
+        if (options.jsonWorks === false) {
+          data.json = null
+          data.warning = 'JSON extraction failed: Unauthorized'
+        } else {
+          data.json = { title: `Title of ${url}`, extracted: true }
+        }
       }
     }
     return data
@@ -231,6 +246,13 @@ export async function createFakeFirecrawl(options = {}) {
 
       if (operation === 'scrape') {
         state.scrapes += 1
+        const wantsJson = (Array.isArray(body.formats) ? body.formats : []).some(
+          (format) => format === 'json' || (format !== null && typeof format === 'object' && format.type === 'json')
+        )
+        if (wantsJson && typeof options.jsonStatus === 'number') {
+          send(response, options.jsonStatus, { success: false, code: 'UNKNOWN_ERROR', error: 'An error occurred. Error ID: test-json' })
+          return
+        }
         if (typeof body.url !== 'string' || body.url === '') {
           send(response, 400, { success: false, code: 'BAD_REQUEST', error: 'url is required' })
           return

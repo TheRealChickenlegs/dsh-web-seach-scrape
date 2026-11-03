@@ -146,6 +146,10 @@ export function parseScrapePage(data: Record<string, unknown>, fallbackUrl: stri
   const html = text(data.html)
   const summary = text(data.summary)
   const screenshotUrl = text(data.screenshot)
+  // Firecrawl answers 200 even when a format produced nothing (for example a
+  // `json` extraction that needs an LLM provider), and explains itself in
+  // `warning`. Dropping it would make the model think the page had no data.
+  const warning = text(data.warning) ?? text(data.error)
 
   // Every optional field is omitted rather than set to undefined: the canonical
   // tool value is validated against its declared output schema, where a present
@@ -161,6 +165,7 @@ export function parseScrapePage(data: Record<string, unknown>, fallbackUrl: stri
     ...(summary === undefined ? {} : { summary }),
     ...(jsonBody === undefined ? {} : { json: jsonBody }),
     ...(screenshotUrl === undefined ? {} : { screenshotUrl }),
+    ...(warning === undefined ? {} : { warning }),
     metadata
   }
 }
@@ -178,7 +183,18 @@ export async function scrapePage(
     ...(signal === undefined ? {} : { signal })
   })
   if (isMissingEndpoint(response)) throw firecrawlError(response, 'scrape')
-  if (!response.ok) throw firecrawlError(response, 'scrape')
+  if (!response.ok) {
+    const error = firecrawlError(response, 'scrape')
+    // A 5xx on an extraction request is almost always the instance's LLM
+    // backend, not the page; saying "the page could not be rendered" would send
+    // the caller chasing the wrong problem.
+    if (response.status >= 500 && options.extract !== undefined) {
+      throw new Error(
+        `${error.message}\n\nStructured extraction is the likely cause: Firecrawl answers JSON extraction through an LLM provider, and a self-hosted instance without one fails this way. Retry without \`extract\` (markdown/links), or configure extraction on the Firecrawl side.`
+      )
+    }
+    throw error
+  }
 
   const payload = record(response.json)
   const data = record(payload?.data)
