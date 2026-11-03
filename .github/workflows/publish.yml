@@ -1,0 +1,134 @@
+name: Publish to npm
+
+# There are three triggers, and all are needed (see docs/RELEASING.md, "why it would not publish automatically"):
+#
+#   push tag   — the main path. It **must** listen for tags directly and cannot depend on the release event alone:
+#                release.yml uses the repository's built-in GITHUB_TOKEN to create the Release,
+#                and a release event produced by GITHUB_TOKEN does **not** trigger other workflows
+#                (GitHub's anti-recursion rule), so relying on the release event alone means "the Release was
+#                created, npm was not published".
+#   release    — for humans: manually publishing a Release in the GitHub UI goes through this.
+#   workflow_dispatch — backfill/retry; a tag can be specified, otherwise the package.json version is used.
+#
+# First-time setup requires adding a secret named NPM_TOKEN under
+# Settings → Secrets and variables → Actions in this repository (an npm Granular Access Token with
+# read+write permission for this package).
+# If it is not configured, nothing fails: the guard skips publishing and prints a notice, keeping the repository green.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.1.0); leave empty to use the package.json version'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  # Publishing signs with OIDC for provenance, which requires this permission.
+  id-token: write
+
+# Only one publish may run at a time; do not cancel an in-progress one (being killed mid-publish is the worst case).
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: npm publish
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the specified tag if given, otherwise the ref that triggered this run.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          # Point explicitly at the official registry: local/mirror registry configuration must not affect the publish target.
+          registry-url: 'https://registry.npmjs.org'
+
+      # Secrets are not available in step-level `if`, so put it in env first and then decide.
+      - name: Check whether NPM_TOKEN is configured
+        id: guard
+        env:
+          TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::No NPM_TOKEN secret configured; skipping the npm publish (see docs/RELEASING.md)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Guard one: if the tag is v0.1.0 while package.json still says 0.0.0, the wrong version would be published.
+      # Only validate when the ref really is a v* tag (when dispatched manually from a branch, the ref is a branch name and cannot be compared).
+      - name: Verify the version matches the tag
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          ver="$(node -p "require('./package.json').version")"
+          ref="${{ github.event.inputs.tag }}"
+          [ -n "$ref" ] || ref="${GITHUB_REF_NAME}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          if [ "${ref#v}" != "$ref" ] && [ "${ref#v}" != "$ver" ]; then
+            echo "::error::tag is $ref, but package.json version is $ver; refusing to publish."
+            exit 1
+          fi
+          echo "Package: $name@$ver (ref: $ref)"
+        id: ver
+
+      # Guard two: npm versions cannot be republished. A repeat trigger (for example publishing the Release again in the UI)
+      # should not become a failed build; detect an existing version and skip.
+      - name: Has this version already been published?
+        id: exists
+        if: steps.guard.outputs.skip == 'false'
+        run: |
+          if npm view "${{ steps.ver.outputs.name }}@${{ steps.ver.outputs.version }}" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.ver.outputs.name }}@${{ steps.ver.outputs.version }} already exists on npm; skipping publish (the same version cannot be republished)."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Install the runtime dependency (the config schema validator) and the test toolchain.
+      # The published tarball includes the compiled lib/, and the tests import lib/index.js.
+      - name: Install dependencies
+        if: steps.guard.outputs.skip == 'false' && steps.exists.outputs.already == 'false'
+        run: npm ci --no-audit --no-fund
+
+      # The package proves itself first: the tests use local fake SearXNG/Firecrawl servers and
+      # make no external network calls, so they finish in seconds.
+      - name: Verify committed lib/ is in sync and run tests
+        if: steps.guard.outputs.skip == 'false' && steps.exists.outputs.already == 'false'
+        run: |
+          npm run build
+          git diff --exit-code -- lib
+          npm test
+
+      - name: Publish to npm
+        if: steps.guard.outputs.skip == 'false' && steps.exists.outputs.already == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+      - name: Result summary
+        if: always()
+        run: |
+          {
+            echo "### npm publish"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Package | ${{ steps.ver.outputs.name }} |"
+            echo "| Version | ${{ steps.ver.outputs.version }} |"
+            echo "| Skipped (no token) | ${{ steps.guard.outputs.skip }} |"
+            echo "| Skipped (version exists) | ${{ steps.exists.outputs.already }} |"
+            echo "| Result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

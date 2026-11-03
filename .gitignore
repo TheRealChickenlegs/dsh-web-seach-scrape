@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+coverage/
+# lib/ is build output but is committed on purpose: users can clone or install from the repository
+# without installing TypeScript, and CI verifies it stays in sync with src/.

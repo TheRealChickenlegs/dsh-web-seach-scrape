@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `npm ci` is used deliberately: package-lock.json pins the official npm registry and
+      # integrity hashes, so CI installs exactly the locked dependency tree.
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # lib/ is build output committed to the repository (users can install it without TypeScript),
+      # so it must stay in sync with src/ — forgetting to build after changing src is caught here.
+      - name: Check lib/ is in sync with src/
+        run: git diff --exit-code -- lib
+
+      # The tests run against local fake SearXNG and Firecrawl servers; no external service is needed.
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Check the published tarball contents
+        run: npm pack --dry-run

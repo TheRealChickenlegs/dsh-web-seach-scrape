@@ -1,0 +1,16 @@
+# Unified line endings: always store LF in the repository, avoiding churn between Windows and Linux.
+# This matters for CI: one step runs `git diff --exit-code -- lib`, proving that the committed lib/
+# matches the current compilation of src/; line-ending drift would make it report a false alarm.
+* text=auto eol=lf
+
+# Treat media as binary; no text conversion is allowed.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.ttf binary
+*.7z binary

@@ -1,0 +1,97 @@
+{
+  "name": "dsh-web-search-scrape",
+  "version": "0.1.0",
+  "description": "Self-hosted web search and scrape for DeepSeek Harness: SearXNG-powered search and Firecrawl-powered scrape, map, crawl and batch through the ctx.web seam and first-class agent tools.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib",
+    "src",
+    "scripts",
+    "docs",
+    "locale",
+    "tsconfig.json",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "icon.svg"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-client.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/run-tests.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "searxng",
+    "firecrawl",
+    "web-search",
+    "web-scrape",
+    "scraping",
+    "crawler",
+    "metasearch",
+    "self-hosted"
+  ],
+  "author": "dsh-web-search-scrape contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheRealChickenlegs/dsh-web-seach-scrape.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheRealChickenlegs/dsh-web-seach-scrape/issues"
+  },
+  "homepage": "https://github.com/TheRealChickenlegs/dsh-web-seach-scrape#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "meta": {
+    "title": "Web Search & Scrape",
+    "description": "Route DSH's web_search to your own SearXNG and web_fetch to your own Firecrawl, and add scrape, batch scrape, map, crawl and diagnostics tools."
+  },
+  "icon": "./icon.svg",
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.0-rc.1"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "jsdom": "^24.1.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.5"
+  }
+}

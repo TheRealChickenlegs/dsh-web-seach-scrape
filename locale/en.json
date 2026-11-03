@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Web Search & Scrape",
+    "description": "Route DSH's web_search to your own SearXNG and web_fetch to your own Firecrawl, and add scrape, batch scrape, map, crawl and diagnostics tools."
+  }
+}
