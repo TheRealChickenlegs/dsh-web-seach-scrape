@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { isolateConfig } from './helpers.mjs'
@@ -131,8 +131,20 @@ test('booleans accept environment spellings', () => {
 })
 
 test('config file location honours the override and ~ expansion', () => {
-  assert.equal(configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '/tmp/x.json' }), '/tmp/x.json')
-  assert.match(configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '' }), new RegExp(`\\.${PLUGIN_ID}${path.sep}config\\.json$`))
+  // Compare against the platform's own resolution: on Windows "/tmp/x.json" is
+  // "D:\tmp\x.json", so a literal expectation would be a POSIX-only assertion.
+  assert.equal(
+    configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '/tmp/x.json' }),
+    path.resolve('/tmp/x.json')
+  )
+  assert.equal(
+    configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '~/x.json' }),
+    path.join(homedir(), 'x.json')
+  )
+  assert.match(
+    configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '' }),
+    new RegExp(`\\.${PLUGIN_ID}${path.sep}config\\.json$`)
+  )
 })
 
 test('a broken config file is ignored with a warning, not a crash', () => {
