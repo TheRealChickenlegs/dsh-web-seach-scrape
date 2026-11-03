@@ -6,7 +6,7 @@ import { limitOutcome, mapSearxngResponse, resolveConfig, searchSearxng, searxng
 isolateConfig()
 
 function configFor(url, extra = {}) {
-  return resolveConfig({ searxngUrl: url, searxngCategories: [], ...extra }, {})
+  return resolveConfig({ searxngUrl: url, searxngCategories: [], ...extra }, process.env)
 }
 
 test('maps and de-duplicates results, capping snippets', () => {
@@ -105,7 +105,7 @@ test('a server error surfaces its message', async () => {
 
 test('an unconfigured endpoint is a clear error', async () => {
   await assert.rejects(
-    () => searchSearxng(resolveConfig({ searxngUrl: 'ftp://bad' }, {}), undefined, { query: 'x' }),
+    () => searchSearxng(resolveConfig({ searxngUrl: 'ftp://bad' }, process.env), undefined, { query: 'x' }),
     /No SearXNG endpoint is configured/
   )
 })
@@ -129,7 +129,7 @@ test('instance info lists the engines, categories and locales', async () => {
 })
 
 test('instance info reports an unreachable instance instead of throwing', async () => {
-  const info = await searxngInstanceInfo(resolveConfig({ searxngUrl: 'http://127.0.0.1:1' }, {}), undefined)
+  const info = await searxngInstanceInfo(resolveConfig({ searxngUrl: 'http://127.0.0.1:1' }, process.env), undefined)
   assert.equal(info.reachable, false)
   assert.ok(typeof info.error === 'string')
 })

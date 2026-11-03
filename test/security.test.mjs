@@ -89,7 +89,7 @@ test('the probe route answers with both instances and never echoes a key', async
 })
 
 test('the probe route rejects an unknown path, a wrong method and a non-JSON body', async () => {
-  const handler = createProbeRouteHandler(createHostContext(), {}, (value) => resolveConfig(value, {}))
+  const handler = createProbeRouteHandler(createHostContext(), {}, (value) => resolveConfig(value, process.env))
 
   const notFound = makeResponse()
   await handler(makeRequest({ url: '/plugin/web-search-scrape/api/other', headers: jsonHeaders() }), notFound)
@@ -120,12 +120,12 @@ test('the probe route rejects an unknown path, a wrong method and a non-JSON bod
 
 test('the probe route honours the connection service and falls back to loopback', async () => {
   const rejecting = createHostContext({ connection: { requestRejection: () => 401 } })
-  const handler = createProbeRouteHandler(rejecting, {}, (value) => resolveConfig(value, {}))
+  const handler = createProbeRouteHandler(rejecting, {}, (value) => resolveConfig(value, process.env))
   const rejected = makeResponse()
   await handler(makeRequest({ headers: jsonHeaders() }), rejected)
   assert.equal(rejected.statusCode, 401)
 
-  const loopbackOnly = createProbeRouteHandler(createHostContext(), {}, (value) => resolveConfig(value, {}))
+  const loopbackOnly = createProbeRouteHandler(createHostContext(), {}, (value) => resolveConfig(value, process.env))
   const offLoopback = makeResponse()
   await loopbackOnly(makeRequest({ headers: jsonHeaders(), remoteAddress: '10.1.2.3' }), offLoopback)
   assert.equal(offLoopback.statusCode, 403)
@@ -138,7 +138,7 @@ test('the probe route honours the connection service and falls back to loopback'
 test('a provider error never contains the key and carries a code', async () => {
   const fake = await createFakeFirecrawl({ apiKey: 'right-key' })
   try {
-    const config = resolveConfig({ firecrawlUrl: fake.url, firecrawlRetries: 0 }, {})
+    const config = resolveConfig({ firecrawlUrl: fake.url, firecrawlRetries: 0 }, process.env)
     await assert.rejects(
       () => scrapePage(config, 'wrong-key-abcdef', 'https://example.com', { urls: [], formats: ['markdown'] }),
       (error) => {

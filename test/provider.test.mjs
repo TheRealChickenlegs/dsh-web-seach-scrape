@@ -6,26 +6,26 @@ import { FirecrawlFetchProvider, SearxngSearchProvider, resolveConfig } from '..
 isolateConfig()
 
 test('the search provider reports its id and endpoint availability', () => {
-  const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'http://127.0.0.1:8080' }, {}) }))
+  const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'http://127.0.0.1:8080' }, process.env) }))
   assert.equal(provider.id, 'searxng')
   assert.equal(provider.available(), true)
 
-  const broken = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'ftp://nope' }, {}) }))
+  const broken = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'ftp://nope' }, process.env) }))
   assert.equal(broken.available(), false)
   assert.equal(broken.id, 'searxng')
 })
 
 test('the fetch provider reports its id and endpoint availability', () => {
-  const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'http://127.0.0.1:3002' }, {}) }))
+  const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'http://127.0.0.1:3002' }, process.env) }))
   assert.equal(provider.id, 'firecrawl')
   assert.equal(provider.available(), true)
-  assert.equal(new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'bad' }, {}) })).available(), false)
+  assert.equal(new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'bad' }, process.env) })).available(), false)
 })
 
 test('search returns the seam shape and honours maxResults', async () => {
   const fake = await createFakeSearxng()
   try {
-    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, {}) }))
+    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, process.env) }))
     const result = await provider.search({ query: 'x', maxResults: 1 })
     assert.equal(result.sources.length, 1)
     assert.equal(result.truncated, true)
@@ -39,7 +39,7 @@ test('search resolves the API key from the environment', async () => {
   const fake = await createFakeSearxng({ requireHeader: { name: 'authorization', value: 'Bearer env-key' } })
   process.env.SEARXNG_API_KEY = 'env-key'
   try {
-    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, {}) }))
+    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, process.env) }))
     const result = await provider.search({ query: 'x' })
     assert.ok(result.sources.length > 0)
   } finally {
@@ -51,7 +51,7 @@ test('search resolves the API key from the environment', async () => {
 test('search failures are coded and actionable', async () => {
   const fake = await createFakeSearxng({ fail: true })
   try {
-    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, {}) }))
+    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, process.env) }))
     await assert.rejects(
       () => provider.search({ query: 'x' }),
       (error) => {
@@ -68,7 +68,7 @@ test('search failures are coded and actionable', async () => {
 test('an aborted search is reported as WEB_ABORTED', async () => {
   const fake = await createFakeSearxng()
   try {
-    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, {}) }))
+    const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: fake.url }, process.env) }))
     const controller = new AbortController()
     controller.abort()
     await assert.rejects(
@@ -84,7 +84,7 @@ test('an aborted search is reported as WEB_ABORTED', async () => {
 })
 
 test('an unconfigured search endpoint is WEB_PROVIDER_UNAVAILABLE', async () => {
-  const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'ftp://nope' }, {}) }))
+  const provider = new SearxngSearchProvider(() => ({ config: resolveConfig({ searxngUrl: 'ftp://nope' }, process.env) }))
   await assert.rejects(
     () => provider.search({ query: 'x' }),
     (error) => {
@@ -97,7 +97,7 @@ test('an unconfigured search endpoint is WEB_PROVIDER_UNAVAILABLE', async () => 
 test('fetch returns markdown as a text body with the page status', async () => {
   const fake = await createFakeFirecrawl()
   try {
-    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: fake.url }, {}) }))
+    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: fake.url }, process.env) }))
     const result = await provider.fetch({ url: 'https://example.com/page' })
     assert.equal(result.url, 'https://example.com/page')
     assert.equal(result.statusCode, 200)
@@ -122,7 +122,7 @@ test('fetch resolves its key through the credentials service', async () => {
     }
   })
   try {
-    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: fake.url }, {}), host }))
+    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: fake.url }, process.env), host }))
     const result = await provider.fetch({ url: 'https://example.com/page' })
     assert.equal(result.statusCode, 200)
     assert.deepEqual(calls, ['FIRECRAWL_API_KEY'])
@@ -136,7 +136,7 @@ test('a fetch failure names the provider and the configuration to check', async 
   try {
     // Ask for a format the fake cannot produce by pinning a v1 instance without markdown support is not possible;
     // instead use an unreachable endpoint to prove the message shape.
-    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'http://127.0.0.1:1' }, {}) }))
+    const provider = new FirecrawlFetchProvider(() => ({ config: resolveConfig({ firecrawlUrl: 'http://127.0.0.1:1' }, process.env) }))
     await assert.rejects(
       () => provider.fetch({ url: 'https://example.com' }),
       (error) => {

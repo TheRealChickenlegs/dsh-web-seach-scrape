@@ -17,7 +17,7 @@ import {
 isolateConfig()
 
 test('defaults are the documented local endpoints', () => {
-  const config = resolveConfig(undefined, {})
+  const config = resolveConfig(undefined, process.env)
   assert.equal(config.searxngUrl, DEFAULTS.searxngUrl)
   assert.equal(config.firecrawlUrl, DEFAULTS.firecrawlUrl)
   assert.equal(config.firecrawlApiVersion, 'auto')
@@ -33,6 +33,7 @@ test('plugin config wins over file and environment', () => {
   writeFileSync(file, JSON.stringify({ searxngUrl: 'http://file:8080', firecrawlUrl: 'http://file:3002' }), 'utf8')
 
   const env = {
+    ...process.env,
     DSH_WEB_SEARCH_SCRAPE_CONFIG: file,
     SEARXNG_URL: 'http://env:8080',
     FIRECRAWL_URL: 'http://env:3002'
@@ -46,19 +47,19 @@ test('plugin config wins over file and environment', () => {
 })
 
 test('environment supplies the conventional endpoint names', () => {
-  const env = { SEARXNG_URL: 'http://searx.local:8888', FIRECRAWL_URL: 'http://firecrawl.local:3002' }
+  const env = { ...process.env, SEARXNG_URL: 'http://searx.local:8888', FIRECRAWL_URL: 'http://firecrawl.local:3002' }
   const config = resolveConfig(undefined, env)
   assert.equal(config.searxngUrl, 'http://searx.local:8888')
   assert.equal(config.firecrawlUrl, 'http://firecrawl.local:3002')
 })
 
 test('volatile references are unwrapped', () => {
-  const config = resolveConfig({ searxngUrl: { get: () => 'http://wrapped:8080' } }, {})
+  const config = resolveConfig({ searxngUrl: { get: () => 'http://wrapped:8080' } }, process.env)
   assert.equal(config.searxngUrl, 'http://wrapped:8080')
 })
 
 test('an invalid endpoint is reported and dropped, not thrown', () => {
-  const config = resolveConfig({ searxngUrl: 'ftp://nope', firecrawlUrl: 'not a url' }, {})
+  const config = resolveConfig({ searxngUrl: 'ftp://nope', firecrawlUrl: 'not a url' }, process.env)
   assert.equal(config.searxngUrl, undefined)
   assert.equal(config.firecrawlUrl, undefined)
   assert.equal(config.problems.length, 2)
@@ -73,7 +74,7 @@ test('endpoints with credentials or a query string are rejected', () => {
 })
 
 test('a credential reference must look like an environment variable name', () => {
-  const config = resolveConfig({ searxngApiKeyEnv: 'not a name' }, {})
+  const config = resolveConfig({ searxngApiKeyEnv: 'not a name' }, process.env)
   assert.equal(config.searxngApiKeyEnv, 'SEARXNG_API_KEY')
   assert.match(config.problems.join('\n'), /environment-variable-style name/)
 })
@@ -99,6 +100,7 @@ test('enums are validated and unknown scrape formats are dropped', () => {
 
 test('lists accept a comma-separated string from the environment', () => {
   const config = resolveConfig(undefined, {
+    ...process.env,
     DSH_WEB_SEARCH_SCRAPE_SEARXNG_CATEGORIES: 'general, news',
     DSH_WEB_SEARCH_SCRAPE_SEARXNG_ENGINES: 'braveapi,arxiv',
     DSH_WEB_SEARCH_SCRAPE_FIRECRAWL_FORMATS: 'markdown,links'
@@ -120,6 +122,7 @@ test('numbers are clamped to their accepted range', () => {
 
 test('booleans accept environment spellings', () => {
   const config = resolveConfig(undefined, {
+    ...process.env,
     DSH_WEB_SEARCH_SCRAPE_FIRECRAWL_ONLY_MAIN_CONTENT: 'false',
     DSH_WEB_SEARCH_SCRAPE_WRITE_METADATA: 'no'
   })
@@ -128,15 +131,15 @@ test('booleans accept environment spellings', () => {
 })
 
 test('config file location honours the override and ~ expansion', () => {
-  assert.equal(configFilePath({ DSH_WEB_SEARCH_SCRAPE_CONFIG: '/tmp/x.json' }), '/tmp/x.json')
-  assert.match(configFilePath({ HOME: '/home/me' }), new RegExp(`\\.${PLUGIN_ID}${path.sep}config\\.json$`))
+  assert.equal(configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '/tmp/x.json' }), '/tmp/x.json')
+  assert.match(configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '' }), new RegExp(`\\.${PLUGIN_ID}${path.sep}config\\.json$`))
 })
 
 test('a broken config file is ignored with a warning, not a crash', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'dsh-web-search-scrape-broken-'))
   const file = path.join(dir, 'config.json')
   writeFileSync(file, '{ not json', 'utf8')
-  assert.deepEqual(readConfigFile({ DSH_WEB_SEARCH_SCRAPE_CONFIG: file }), {})
+  assert.deepEqual(readConfigFile({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: file }), {})
 })
 
 test('identity matches package.json', async () => {

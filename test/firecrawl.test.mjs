@@ -17,7 +17,7 @@ import {
 isolateConfig()
 
 function configFor(url, extra = {}) {
-  return resolveConfig({ firecrawlUrl: url, firecrawlRetries: 0, ...extra }, {})
+  return resolveConfig({ firecrawlUrl: url, firecrawlRetries: 0, ...extra }, process.env)
 }
 
 test('scrapes one page with markdown through v2', async () => {
