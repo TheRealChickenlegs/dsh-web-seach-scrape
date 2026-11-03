@@ -95,12 +95,14 @@ function renderPage(page: ScrapePageResult, maxChars: number, index: number): st
   const bits: string[] = []
   if (page.statusCode !== undefined) bits.push(`HTTP ${page.statusCode}`)
   if (page.links !== undefined) bits.push(`${page.links.length} links`)
+  if (page.images !== undefined) bits.push(`${page.images.length} images`)
+  if (page.product !== undefined) bits.push('product data')
   if (page.json !== undefined && page.json !== null) bits.push('structured JSON')
   if (page.summary !== undefined) bits.push('summary')
   if (page.screenshotUrl !== undefined) bits.push(`screenshot: ${page.screenshotUrl}`)
   if (bits.length > 0) lines.push(bits.join(' · '))
 
-  const body = page.markdown ?? page.html ?? page.summary
+  const body = page.markdown ?? page.summary ?? page.html ?? page.rawHtml
   if (body !== undefined) {
     const preview = previewText(body, maxChars)
     lines.push('')
@@ -111,6 +113,18 @@ function renderPage(page: ScrapePageResult, maxChars: number, index: number): st
     lines.push('```json')
     lines.push(JSON.stringify(page.json, null, 2).slice(0, maxChars))
     lines.push('```')
+  }
+  if (page.product !== undefined) {
+    lines.push('')
+    lines.push('```json')
+    lines.push(JSON.stringify(page.product, null, 2).slice(0, maxChars))
+    lines.push('```')
+  }
+  if (page.images !== undefined && page.images.length > 0) {
+    lines.push('')
+    lines.push('Images:')
+    for (const image of page.images.slice(0, 20)) lines.push(`- ${image}`)
+    if (page.images.length > 20) lines.push(`- … ${page.images.length - 20} more in the saved metadata`)
   }
   if (page.warning !== undefined) {
     lines.push('')
@@ -131,11 +145,11 @@ async function persistPage(
   explicit: boolean,
   writeMetadata: boolean
 ): Promise<void> {
-  const body = page.markdown ?? page.html ?? page.summary
+  const body = page.markdown ?? page.summary ?? page.html ?? page.rawHtml
   const shouldSave = body !== undefined && (explicit || body.length > config.maxInlineChars)
   if (!shouldSave || body === undefined) return
   const stem = slugForUrl(page.url)
-  const extension = page.markdown !== undefined ? 'md' : page.html !== undefined ? 'html' : 'txt'
+  const extension = page.markdown !== undefined ? 'md' : page.rawHtml !== undefined && page.html === undefined ? 'html' : page.html !== undefined ? 'html' : 'txt'
   const name = `${timestampSlug()}-${stem}.${extension}`
   page.savedPath = await writeTextFile(directory, name, body)
   if (writeMetadata) {
@@ -367,7 +381,7 @@ export const SCRAPE_PARAMETERS = {
     },
     formats: {
       type: 'array',
-      items: { type: 'string', enum: ['markdown', 'html', 'links', 'screenshot', 'summary', 'json'] },
+      items: { type: 'string', enum: ['markdown', 'html', 'rawHtml', 'links', 'images', 'screenshot', 'summary', 'json', 'product'] },
       description: 'What to return per page. Defaults to the configured formats (usually ["markdown"]). "json" requires `extract`.'
     },
     extract: {
@@ -412,8 +426,11 @@ export const SCRAPE_OUTPUT = {
           title: { type: 'string' },
           markdown: { type: 'string' },
           html: { type: 'string' },
+          rawHtml: { type: 'string' },
           summary: { type: 'string' },
           links: { type: 'array', items: { type: 'string' } },
+          images: { type: 'array', items: { type: 'string' } },
+          product: { type: 'object', additionalProperties: true },
           screenshotUrl: { type: 'string' },
           savedPath: { type: 'string' },
           error: { type: 'string' },

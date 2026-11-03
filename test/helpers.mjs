@@ -164,7 +164,7 @@ export async function createFakeFirecrawl(options = {}) {
   const missing = new Set(options.missing ?? [])
   const state = { requests: [], batchPolls: 0, crawlPolls: 0, scrapes: 0 }
 
-  const VERBATIM_FORMATS = ['markdown', 'html', 'rawHtml', 'rawBase64', 'links', 'screenshot', 'screenshot@fullPage', 'extract', 'json', 'summary', 'changeTracking', 'branding', 'product', 'menu']
+  const VERBATIM_FORMATS = ['markdown', 'html', 'rawHtml', 'rawBase64', 'links', 'images', 'screenshot', 'screenshot@fullPage', 'extract', 'json', 'summary', 'changeTracking', 'branding', 'product', 'menu']
 
   function endpointMissing(version, operation) {
     if (missing.has(`${version}:${operation}`)) return true
@@ -186,7 +186,10 @@ export async function createFakeFirecrawl(options = {}) {
       if (typeof format === 'string') {
         if (format === 'markdown') data.markdown = `# ${url}\n\nbody text`
         else if (format === 'html') data.html = `<html><body>${url}</body></html>`
+        else if (format === 'rawHtml') data.rawHtml = `<html><body class="raw">${url}</body></html>`
         else if (format === 'links') data.links = [`${url}#one`, `${url}#two`]
+        else if (format === 'images') data.images = [`${url}/one.png`, { url: `${url}/two.png` }]
+        else if (format === 'product') data.product = { title: 'Widget', price: '9.99', availability: 'in_stock' }
         else if (format === 'screenshot') data.screenshot = `http://127.0.0.1/screenshot.png`
         else if (format === 'summary') data.summary = `Summary of ${url}`
         else if (format === 'json') {

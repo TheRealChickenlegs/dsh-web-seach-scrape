@@ -187,7 +187,10 @@ export interface ScrapePageResult {
   title?: string
   markdown?: string
   html?: string
+  rawHtml?: string
   links?: string[]
+  images?: string[]
+  product?: unknown
   summary?: string
   json?: unknown
   screenshotUrl?: string

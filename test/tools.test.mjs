@@ -71,6 +71,27 @@ test('web_scrape uses a single scrape for one URL and batch for several', async 
   }
 })
 
+test('web_scrape returns rawHtml, images and product data', async () => {
+  const fake = await createFakeFirecrawl()
+  const cwd = mkdtempSync(path.join(tmpdir(), 'dsh-wss-formats-'))
+  try {
+    const tool = createScrapeTool(configFor({ firecrawlUrl: fake.url }))
+    const result = await tool.execute(
+      { urls: ['https://example.com/p'], formats: ['rawHtml', 'images', 'product'] },
+      { agent: { cwd } }
+    )
+    assert.equal(validateValue(tool.output.schema, result).length, 0)
+    const page = result.pages[0]
+    assert.match(page.rawHtml, /class="raw"/)
+    assert.deepEqual(page.images, ['https://example.com/p/one.png', 'https://example.com/p/two.png'])
+    assert.equal(page.product.title, 'Widget')
+    assert.match(result.text, /product data/)
+    assert.match(result.text, /Images:/)
+  } finally {
+    await fake.close()
+  }
+})
+
 test('web_scrape rejects a non-http URL before spending a request', async () => {
   const tool = createScrapeTool({})
   await assert.rejects(() => tool.execute({ urls: ['file:///etc/passwd'] }, {}), /must use http or https/)

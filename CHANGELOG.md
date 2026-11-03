@@ -18,7 +18,7 @@ First release.
   `source: auto` fallback to Firecrawl search when SearXNG is unavailable.
 - **`web_scrape`** — one page via `/scrape`, two or more via `/batch/scrape` with job polling, so
   multi-URL scraping uses the instance's concurrency instead of N sequential calls. Formats:
-  markdown, html, links, screenshot, summary, json; `extract` adds structured extraction, encoded
+  markdown, html, rawHtml, links, images, screenshot, summary, json, product; `extract` adds structured extraction, encoded
   as a `json` format object on v2 and as `jsonOptions` on v1. When a format produces nothing (an
   instance without an LLM answers `json: null`), Firecrawl's own warning is surfaced on the page
   and in the text instead of being dropped.

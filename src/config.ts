@@ -52,7 +52,17 @@ export const API_VERSIONS = ['auto', 'v1', 'v2'] as const
 export const PROXY_MODES = ['auto', 'basic', 'stealth', 'enhanced'] as const
 export const TIME_RANGES = ['day', 'week', 'month', 'year'] as const
 export const SAFE_SEARCH_LEVELS = [0, 1, 2] as const
-export const SCRAPE_FORMATS = ['markdown', 'html', 'links', 'screenshot', 'summary', 'json'] as const
+export const SCRAPE_FORMATS = [
+  'markdown',
+  'html',
+  'rawHtml',
+  'links',
+  'images',
+  'screenshot',
+  'summary',
+  'json',
+  'product'
+] as const
 
 /** Credential reference grammar shared with DSH's credentials service. */
 export const CREDENTIAL_REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/

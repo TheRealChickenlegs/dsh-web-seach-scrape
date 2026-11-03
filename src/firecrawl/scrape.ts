@@ -148,6 +148,11 @@ export function parseScrapePage(data: Record<string, unknown>, fallbackUrl: stri
     : undefined
 
   const jsonBody = data.json ?? data.extract
+  const rawHtml = text(data.rawHtml)
+  const images = Array.isArray(data.images)
+    ? data.images.map((entry) => (typeof entry === 'string' ? entry : text(record(entry)?.url))).filter((entry): entry is string => entry !== undefined)
+    : undefined
+  const product = data.product !== null && typeof data.product === 'object' ? data.product : undefined
   const title = text(metadata.title)
   const statusCode = typeof metadata.statusCode === 'number' ? metadata.statusCode : undefined
   const markdown = text(data.markdown) ?? text(data.content)
@@ -169,7 +174,10 @@ export function parseScrapePage(data: Record<string, unknown>, fallbackUrl: stri
     ...(title === undefined ? {} : { title }),
     ...(markdown === undefined ? {} : { markdown }),
     ...(html === undefined ? {} : { html }),
+    ...(rawHtml === undefined ? {} : { rawHtml }),
     ...(links === undefined || links.length === 0 ? {} : { links }),
+    ...(images === undefined || images.length === 0 ? {} : { images }),
+    ...(product === undefined ? {} : { product }),
     ...(summary === undefined ? {} : { summary }),
     ...(jsonBody === undefined ? {} : { json: jsonBody }),
     ...(screenshotUrl === undefined ? {} : { screenshotUrl }),

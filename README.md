@@ -144,7 +144,7 @@ neither provider registers.
 | Tool | Use it for |
 |---|---|
 | `web_search_advanced` | SearXNG search with `categories`, `engines`, `language`, `pageno`, `time_range`, `safesearch`, an optional answer, and `source: auto` fallback to Firecrawl. |
-| `web_scrape` | One page or many. Two or more URLs use Firecrawl **batch scrape** (the instance runs them concurrently) instead of N sequential calls. Formats: markdown, html, links, screenshot, summary, json. `extract` adds structured extraction (v2). |
+| `web_scrape` | One page or many. Two or more URLs use Firecrawl **batch scrape** (the instance runs them concurrently) instead of N sequential calls. Formats: markdown, html, rawHtml, links, images, screenshot, summary, json, product. `extract` adds schema-driven structured extraction. |
 | `web_map` | List a site's URLs (optionally filtered by `search`) before scraping. |
 | `web_crawl` | Crawl a site with limits, path filters and polling. A timeout returns the live `job_id`; call again with it to resume. |
 | `web_status` | What both instances actually expose: SearXNG engines/version; Firecrawl v1/v2 endpoints, preferred version, working formats, deprecations. |

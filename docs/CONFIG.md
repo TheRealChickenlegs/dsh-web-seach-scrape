@@ -37,7 +37,7 @@ be filled in from observation rather than memory.
 | `firecrawlUrl` | `http://127.0.0.1:3002` | `FIRECRAWL_URL`, `…_FIRECRAWL_URL` | API root (the address that answers `/v2/scrape`). `/v1` and `/v2` are both probed. |
 | `firecrawlApiKeyEnv` | `FIRECRAWL_API_KEY` | `…_FIRECRAWL_API_KEY_ENV` | **Name** of the credential holding the key. |
 | `firecrawlApiVersion` | `auto` | `…_FIRECRAWL_API_VERSION` | `auto` (prefer v2, fall back per operation), `v1`, or `v2`. |
-| `firecrawlFormats` | `["markdown"]` | `…_FIRECRAWL_FORMATS` (comma-separated) | Default formats: `markdown`, `html`, `links`, `screenshot`, `summary`, `json`. |
+| `firecrawlFormats` | `["markdown"]` | `…_FIRECRAWL_FORMATS` (comma-separated) | Default formats: `markdown`, `html`, `rawHtml`, `links`, `images`, `screenshot`, `summary`, `json`, `product`. |
 | `firecrawlOnlyMainContent` | `true` | `…_FIRECRAWL_ONLY_MAIN_CONTENT` | Drop navigation, footers and boilerplate. |
 | `firecrawlProxy` | unset | `…_FIRECRAWL_PROXY` | `auto`, `basic`, `stealth`, `enhanced`. Sent on v2 requests only. |
 | `firecrawlTimeoutMs` | `60000` | `…_FIRECRAWL_TIMEOUT_MS` | One Firecrawl HTTP request (1000-300000). |
