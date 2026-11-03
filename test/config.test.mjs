@@ -141,9 +141,11 @@ test('config file location honours the override and ~ expansion', () => {
     configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '~/x.json' }),
     path.join(homedir(), 'x.json')
   )
-  assert.match(
+  // Exact comparison rather than a regex: `path.sep` is a backslash on Windows,
+  // which is a regex escape there and silently corrupts the pattern.
+  assert.equal(
     configFilePath({ ...process.env, DSH_WEB_SEARCH_SCRAPE_CONFIG: '' }),
-    new RegExp(`\\.${PLUGIN_ID}${path.sep}config\\.json$`)
+    path.join(homedir(), `.${PLUGIN_ID}`, 'config.json')
   )
 })
 
