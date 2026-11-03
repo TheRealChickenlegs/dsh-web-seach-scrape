@@ -98,12 +98,18 @@ async function probeVersion(
   return { reachable, endpoints }
 }
 
-/** One scrape request used to learn format support. */
+/**
+ * One scrape request used to learn format support.
+ *
+ * `body` carries the version-appropriate format encoding (v2 folds extraction
+ * into a `formats` object; v1 uses `jsonOptions`), so the probe exercises the
+ * same request shape the tools will send.
+ */
 async function probeFormat(
   config: ResolvedConfig,
   key: string | undefined,
   version: 'v1' | 'v2',
-  formats: unknown[],
+  body: Record<string, unknown>,
   probeUrl: string,
   signal: AbortSignal | undefined,
   produced?: (data: Record<string, unknown>) => boolean
@@ -113,8 +119,8 @@ async function probeFormat(
     const response = await requestJson(`${base}/${version}/scrape`, {
       method: 'POST',
       headers: key === undefined || key === '' ? {} : { authorization: `Bearer ${key}` },
-      body: { url: probeUrl, formats },
-      timeoutMs: Math.min(config.firecrawlTimeoutMs, 45_000),
+      body: { url: probeUrl, ...body },
+      timeoutMs: Math.min(config.firecrawlTimeoutMs, 60_000),
       retries: 0,
       ...(signal === undefined ? {} : { signal })
     })
@@ -149,28 +155,42 @@ async function probeFormats(
   const formats: FormatSupport = {}
   const notes: Record<string, string> = {}
 
-  const basic = await probeFormat(config, key, version, ['markdown', 'html', 'links'], probeUrl, signal)
+  const basic = await probeFormat(config, key, version, { formats: ['markdown', 'html', 'links'] }, probeUrl, signal)
   formats.markdown = basic.ok
   formats.html = basic.ok
   formats.links = basic.ok
   if (!basic.ok && basic.note !== undefined) notes.markdown = basic.note
 
-  const jsonProbe =
-    version === 'v2'
-      ? await probeFormat(
-          config,
-          key,
-          version,
-          [{ type: 'json', prompt: 'Return the page title.', schema: { type: 'object', properties: { title: { type: 'string' } } } }],
-          probeUrl,
-          signal,
-          (data) => data.json !== null && data.json !== undefined
-        )
-      : await probeFormat(config, key, version, ['json'], probeUrl, signal, (data) => data.json !== null && data.json !== undefined)
+  // Extraction and summarisation each cost a model call on the instance, so probe
+  // them concurrently rather than doubling the wait.
+  const extractionPrompt = 'Return the page title.'
+  const extractionSchema = { type: 'object', properties: { title: { type: 'string' } } }
+  const [jsonProbe, summary] = await Promise.all([
+    probeFormat(
+      config,
+      key,
+      version,
+      version === 'v2'
+        ? { formats: [{ type: 'json', prompt: extractionPrompt, schema: extractionSchema }] }
+        : { formats: ['json'], jsonOptions: { prompt: extractionPrompt, schema: extractionSchema } },
+      probeUrl,
+      signal,
+      (data) => data.json !== null && data.json !== undefined
+    ),
+    probeFormat(
+      config,
+      key,
+      version,
+      { formats: ['summary'] },
+      probeUrl,
+      signal,
+      (data) => typeof data.summary === 'string' && data.summary !== ''
+    )
+  ])
+
   formats.json = jsonProbe.ok
   if (!jsonProbe.ok && jsonProbe.note !== undefined) notes.json = jsonProbe.note
 
-  const summary = await probeFormat(config, key, version, ['summary'], probeUrl, signal, (data) => typeof data.summary === 'string' && data.summary !== '')
   formats.summary = summary.ok
   if (!summary.ok && summary.note !== undefined) notes.summary = summary.note
 
@@ -243,9 +263,7 @@ export async function probeCapabilities(
     }
     if (formats.json === false) {
       deprecations.push(
-        version === 'v1'
-          ? 'Structured extraction (`json`/extract) is only available on Firecrawl v2.'
-          : 'Structured extraction (`json`) produced no value on this instance; it needs an LLM provider on the Firecrawl side.'
+        'Structured extraction (`json`) produced no value on this instance; it needs an LLM provider on the Firecrawl side.'
       )
     }
   }

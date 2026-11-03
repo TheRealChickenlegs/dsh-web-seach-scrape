@@ -18,9 +18,10 @@ First release.
   `source: auto` fallback to Firecrawl search when SearXNG is unavailable.
 - **`web_scrape`** — one page via `/scrape`, two or more via `/batch/scrape` with job polling, so
   multi-URL scraping uses the instance's concurrency instead of N sequential calls. Formats:
-  markdown, html, links, screenshot, summary, json; `extract` adds structured extraction. When a
-  format produces nothing (an instance without an LLM answers `json: null`), Firecrawl's own
-  warning is surfaced on the page and in the text instead of being dropped.
+  markdown, html, links, screenshot, summary, json; `extract` adds structured extraction, encoded
+  as a `json` format object on v2 and as `jsonOptions` on v1. When a format produces nothing (an
+  instance without an LLM answers `json: null`), Firecrawl's own warning is surfaced on the page
+  and in the text instead of being dropped.
 - **`web_map`** and **`web_crawl`** — URL discovery and a polled crawl that returns its live
   `job_id` on timeout so the job can be resumed instead of lost.
 - **`web_status`** — probes SearXNG `/config` and Firecrawl **v1 and v2** endpoint matrices,
@@ -40,4 +41,5 @@ First release.
 - SearXNG `2026.10.16+ff8f5ddcc` (JSON enabled; engines `braveapi`, `arxiv`, `google scholar`,
   `pubmed`, `semantic scholar`).
 - A self-hosted Firecrawl exposing `/v1` and `/v2` for scrape, search, map, crawl and batch,
-  with `/v2/extract` deprecated and `summary` unavailable without an LLM provider.
+  with `/v2/extract` deprecated; `summary` and `json` extraction were verified both before and
+  after the instance's LLM backend was configured.

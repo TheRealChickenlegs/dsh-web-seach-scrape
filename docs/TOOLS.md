@@ -50,7 +50,7 @@ Scrape one or many pages.
 |---|---|---|---|
 | `urls` | string[] (required) | — | http/https URLs. |
 | `formats` | enum[] | configured | `markdown`, `html`, `links`, `screenshot`, `summary`, `json`. |
-| `extract` | `{prompt, schema?}` | — | Structured extraction. Requires the `json` format and Firecrawl **v2**. |
+| `extract` | `{prompt, schema?}` | — | Structured extraction; implies the `json` format. Encoded per version automatically (v2: a `json` format object; v1: `jsonOptions`). Passing `json` in `formats` **without** `extract` is an error, since there is no prompt to run. |
 | `only_main_content` | boolean | configured | Drop boilerplate. |
 | `include_tags` | string[] | — | CSS selectors to keep. |
 | `exclude_tags` | string[] | — | CSS selectors to remove. |
@@ -64,6 +64,9 @@ Scrape one or many pages.
 Output: `ok`, `version`, `job_id?`, `timed_out?`, `total?`, `pages[]` (`url`, `ok`, `statusCode`,
 `title`, `markdown`, `html`, `links`, `summary`, `screenshotUrl`, `savedPath?`, `error?`,
 `warning?`), `text`.
+
+An `extract` request gets at least 120 s at the HTTP layer, because the instance runs a model call
+for it; a plain scrape uses `firecrawlTimeoutMs`.
 
 `warning` carries Firecrawl's own note when a requested format produced nothing — most often a
 `json` extraction on an instance without an LLM provider, which answers HTTP 200 with `json: null`
@@ -126,7 +129,7 @@ Report what the two instances actually provide.
 |---|---|---|---|
 | `include` | `all\|searxng\|firecrawl` | `all` | Which service to report. |
 | `refresh` | boolean | `false` | Ignore the 10-minute capability cache. |
-| `probe_formats` | boolean | `true` | Fetch a test page to prove which formats work. |
+| `probe_formats` | boolean | `true` | Fetch a test page to prove which formats work; costs one plain scrape plus an extraction and a summary. |
 
 What it probes:
 

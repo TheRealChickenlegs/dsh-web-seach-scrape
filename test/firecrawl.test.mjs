@@ -99,7 +99,7 @@ test('structured extraction uses the v2 json format object', async () => {
         extract: { prompt: 'title', schema: { type: 'object', properties: { title: { type: 'string' } } } }
       }
     )
-    assert.deepEqual(page.json, { title: 'Title of https://example.com/c', extracted: true })
+    assert.deepEqual(page.json, { title: 'Title of https://example.com/c' })
     const sent = fake.state.requests.find((request) => request.path === '/v2/scrape')
     const jsonFormat = sent.body.formats.find((entry) => typeof entry === 'object')
     assert.equal(jsonFormat.type, 'json')
@@ -109,18 +109,36 @@ test('structured extraction uses the v2 json format object', async () => {
   }
 })
 
-test('a pinned v1 explains that extraction needs v2', async () => {
+test('a pinned v1 sends extraction through jsonOptions', async () => {
   resetVersionCache()
   const fake = await createFakeFirecrawl()
   try {
-    await assert.rejects(
-      () =>
-        scrapePage(configFor(fake.url, { firecrawlApiVersion: 'v1' }), undefined, 'https://example.com/d', {
-          urls: [],
-          extract: { prompt: 'title' }
-        }),
-      /needs Firecrawl v2/
+    const page = await scrapePage(
+      configFor(fake.url, { firecrawlApiVersion: 'v1' }),
+      undefined,
+      'https://example.com/d',
+      { urls: [], formats: ['markdown'], extract: { prompt: 'title', schema: { type: 'object' } } }
     )
+    assert.deepEqual(page.json, { title: 'Title of https://example.com/d' })
+    const sent = fake.state.requests.find((request) => request.path === '/v1/scrape')
+    assert.deepEqual(sent.body.formats, ['markdown', 'json'])
+    assert.equal(sent.body.jsonOptions.prompt, 'title')
+    assert.deepEqual(sent.body.jsonOptions.schema, { type: 'object' })
+  } finally {
+    await fake.close()
+  }
+})
+
+test('a v1 instance reports extraction and summary as supported once an LLM is configured', async () => {
+  resetVersionCache()
+  resetCapabilityCache()
+  const fake = await createFakeFirecrawl({ mode: 'v1-only', summaryWorks: true })
+  try {
+    const caps = await probeCapabilities(configFor(fake.url), undefined, { force: true, probeFormats: true })
+    assert.equal(caps.preferred, 'v1')
+    assert.equal(caps.formats.json, true)
+    assert.equal(caps.formats.summary, true)
+    assert.ok(!caps.deprecations.some((line) => /Structured extraction/.test(line)))
   } finally {
     await fake.close()
   }

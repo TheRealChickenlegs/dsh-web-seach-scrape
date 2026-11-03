@@ -173,6 +173,11 @@ export async function createFakeFirecrawl(options = {}) {
     return false
   }
 
+  function jsonValue(url) {
+    if (options.jsonWorks === false) return { value: null, warning: 'JSON extraction failed: Unauthorized' }
+    return { value: { title: `Title of ${url}` } }
+  }
+
   function scrapeData(version, body) {
     const url = body.url
     const formats = Array.isArray(body.formats) ? body.formats : ['markdown']
@@ -185,20 +190,18 @@ export async function createFakeFirecrawl(options = {}) {
         else if (format === 'screenshot') data.screenshot = `http://127.0.0.1/screenshot.png`
         else if (format === 'summary') data.summary = `Summary of ${url}`
         else if (format === 'json') {
-          if (options.jsonWorks === false) {
-            data.json = null
-            data.warning = 'JSON extraction failed: Unauthorized'
-          } else {
-            data.json = { title: `Title of ${url}` }
-          }
+          const result = jsonValue(url)
+          data.json = result.value
+          if (result.warning !== undefined) data.warning = result.warning
+        } else if (format === 'extract') {
+          const result = jsonValue(url)
+          data.extract = result.value
+          if (result.warning !== undefined) data.warning = result.warning
         }
       } else if (format && typeof format === 'object' && format.type === 'json') {
-        if (options.jsonWorks === false) {
-          data.json = null
-          data.warning = 'JSON extraction failed: Unauthorized'
-        } else {
-          data.json = { title: `Title of ${url}`, extracted: true }
-        }
+        const result = jsonValue(url)
+        data.json = result.value
+        if (result.warning !== undefined) data.warning = result.warning
       }
     }
     return data
@@ -246,8 +249,9 @@ export async function createFakeFirecrawl(options = {}) {
 
       if (operation === 'scrape') {
         state.scrapes += 1
-        const wantsJson = (Array.isArray(body.formats) ? body.formats : []).some(
-          (format) => format === 'json' || (format !== null && typeof format === 'object' && format.type === 'json')
+        const formats = Array.isArray(body.formats) ? body.formats : ['markdown']
+        const wantsJson = formats.some(
+          (format) => format === 'json' || format === 'extract' || (format !== null && typeof format === 'object' && format.type === 'json')
         )
         if (wantsJson && typeof options.jsonStatus === 'number') {
           send(response, options.jsonStatus, { success: false, code: 'UNKNOWN_ERROR', error: 'An error occurred. Error ID: test-json' })
@@ -257,11 +261,10 @@ export async function createFakeFirecrawl(options = {}) {
           send(response, 400, { success: false, code: 'BAD_REQUEST', error: 'url is required' })
           return
         }
-        const formats = Array.isArray(body.formats) ? body.formats : ['markdown']
-        // v1 rejects the json format object exactly like the real server.
-        if (version === 'v1') {
-          for (const format of formats) {
-            if (format !== null && typeof format === 'object') {
+        for (const format of formats) {
+          if (format !== null && typeof format === 'object') {
+            // v1 has no object formats; v2 accepts only the json object.
+            if (version === 'v1' || format.type !== 'json') {
               send(response, 400, {
                 success: false,
                 code: 'BAD_REQUEST',
@@ -270,18 +273,27 @@ export async function createFakeFirecrawl(options = {}) {
               })
               return
             }
-            if (typeof format === 'string' && !VERBATIM_FORMATS.includes(format)) {
-              send(response, 400, { success: false, code: 'BAD_REQUEST', error: 'Bad Request', details: [{ code: 'invalid_value', values: VERBATIM_FORMATS }] })
-              return
-            }
+          } else if (typeof format === 'string' && !VERBATIM_FORMATS.includes(format)) {
+            send(response, 400, { success: false, code: 'BAD_REQUEST', error: 'Bad Request', details: [{ code: 'invalid_value', values: VERBATIM_FORMATS }] })
+            return
           }
         }
-        if (formats.some((format) => format === 'summary') && options.summaryWorks !== true) {
-          send(response, 500, { success: false, code: 'UNKNOWN_ERROR', error: 'An error occurred. Error ID: test-summary' })
-          return
+        if (version === 'v1') {
+          // v1 pairs formats with their options and rejects a one-sided request.
+          const hasJsonOptions = body.jsonOptions !== undefined
+          const hasExtractOptions = body.extract !== undefined
+          const jsonFormat = formats.includes('json') || formats.includes('extract')
+          if (jsonFormat !== (hasJsonOptions || hasExtractOptions)) {
+            send(response, 400, {
+              success: false,
+              code: 'BAD_REQUEST',
+              error: "When 'extract' or 'json' format is specified, corresponding options must be provided, and vice versa"
+            })
+            return
+          }
         }
-        if (version === 'v1' && formats.includes('json')) {
-          send(response, 400, { success: false, code: 'BAD_REQUEST', error: "When 'extract' or 'json' format is specified, corresponding options must be provided" })
+        if (formats.includes('summary') && options.summaryWorks !== true) {
+          send(response, 500, { success: false, code: 'UNKNOWN_ERROR', error: 'An error occurred. Error ID: test-summary' })
           return
         }
         send(response, 200, { success: true, data: scrapeData(version, body) })

@@ -82,41 +82,49 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
-/** Build the `formats` array, folding structured extraction into a json format object. */
-function buildFormats(options: ScrapeOptions, version: ApiVersion): unknown[] {
-  const requested = options.formats ?? ['markdown']
-  const formats: unknown[] = []
-  for (const format of requested) {
-    if (format === 'json') continue
-    formats.push(format)
-  }
+/** Requested formats minus the extraction marker, which is encoded per version. */
+function formatStrings(options: ScrapeOptions): string[] {
+  return (options.formats ?? ['markdown']).filter((format) => format !== 'json')
+}
+
+/**
+ * Encode structured extraction the way the selected API version expects.
+ *
+ * - v2 folds it into `formats` as `{ type: 'json', prompt, schema }`;
+ * - v1 keeps `formats` as strings and takes the prompt/schema in `jsonOptions`.
+ *
+ * Both produce a `json` object in `data`. Sending the v2 shape to v1 is rejected
+ * as an invalid format value, which is why the split exists.
+ */
+function applyExtraction(body: Record<string, unknown>, options: ScrapeOptions, version: ApiVersion): Record<string, unknown> {
+  const formats: unknown[] = formatStrings(options)
   if (options.extract !== undefined) {
-    if (version === 'v1') {
-      throw new Error(
-        'Structured extraction (`extract`) needs Firecrawl v2: v1 predates the json format and rejects the options. ' +
-          'Set firecrawlApiVersion to auto (or v2) on the plugin page, or scrape as markdown instead.'
-      )
+    if (version === 'v2') {
+      formats.push({
+        type: 'json',
+        prompt: options.extract.prompt,
+        ...(options.extract.schema === undefined ? {} : { schema: options.extract.schema })
+      })
+    } else {
+      formats.push('json')
+      body.jsonOptions = {
+        prompt: options.extract.prompt,
+        ...(options.extract.schema === undefined ? {} : { schema: options.extract.schema })
+      }
     }
-    formats.push({
-      type: 'json',
-      prompt: options.extract.prompt,
-      ...(options.extract.schema === undefined ? {} : { schema: options.extract.schema })
-    })
   }
   if (formats.length === 0) {
     throw new Error(
       'Nothing to return: `json` was requested without `extract`. Pass extract.prompt (and optionally extract.schema), or request markdown/html/links.'
     )
   }
-  return formats
+  body.formats = formats
+  return body
 }
 
 /** Shared scrape body fields, split by what the selected version accepts. */
 function scrapeBody(url: string, options: ScrapeOptions, version: ApiVersion): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    url,
-    formats: buildFormats(options, version)
-  }
+  const body: Record<string, unknown> = applyExtraction({ url }, options, version)
   if (options.onlyMainContent !== undefined) body.onlyMainContent = options.onlyMainContent
   if (options.includeTags !== undefined && options.includeTags.length > 0) body.includeTags = options.includeTags
   if (options.excludeTags !== undefined && options.excludeTags.length > 0) body.excludeTags = options.excludeTags
@@ -180,6 +188,9 @@ export async function scrapePage(
 ): Promise<ScrapePageResult> {
   const { response } = await callFirecrawl(config, key, 'scrape', undefined, {
     buildBody: (version) => scrapeBody(url, options, version),
+    // Structured extraction runs a model call on the instance, which is far slower
+    // than a plain scrape; keep at least two minutes of HTTP budget for it.
+    timeoutMs: options.extract === undefined ? config.firecrawlTimeoutMs : Math.max(config.firecrawlTimeoutMs, 120_000),
     ...(signal === undefined ? {} : { signal })
   })
   if (isMissingEndpoint(response)) throw firecrawlError(response, 'scrape')
@@ -273,10 +284,7 @@ export async function scrapeUrls(
   }
 
   const buildBatchBody = (version: ApiVersion): Record<string, unknown> => {
-    const body: Record<string, unknown> = {
-      urls,
-      formats: buildFormats(options, version)
-    }
+    const body: Record<string, unknown> = applyExtraction({ urls }, options, version)
     if (options.onlyMainContent !== undefined) body.onlyMainContent = options.onlyMainContent
     if (options.includeTags !== undefined && options.includeTags.length > 0) body.includeTags = options.includeTags
     if (options.excludeTags !== undefined && options.excludeTags.length > 0) body.excludeTags = options.excludeTags
@@ -378,7 +386,7 @@ export async function startCrawl(
 ): Promise<{ jobId: string; version: ApiVersion }> {
   const buildCrawlBody = (version: ApiVersion): Record<string, unknown> => {
     const scrapeOptions: Record<string, unknown> = {
-      formats: buildFormats({ urls: [], formats: options.formats, onlyMainContent: options.onlyMainContent }, version)
+      formats: formatStrings({ urls: [], formats: options.formats, onlyMainContent: options.onlyMainContent })
     }
     if (options.onlyMainContent !== undefined) scrapeOptions.onlyMainContent = options.onlyMainContent
 
