@@ -171,16 +171,8 @@ async function persistPage(
 
 /* ─────────────────────────── web_search_advanced ─────────────────────────── */
 
-export const SEARCH_DESCRIPTION = [
-  'Search the web through the configured self-hosted SearXNG instance, with the filters the built-in `web_search` cannot express.',
-  '',
-  'Use plain `web_search` for a normal lookup. Use this tool when you need engine, category, language, recency or',
-  'pagination control, when you want the instance\'s own answer text, or when SearXNG is down and Firecrawl should',
-  'answer instead (`source: "auto"` falls back automatically).',
-  '',
-  'Results are a numbered source list with title, URL and snippet. `sources` carries the same data structurally.',
-  'Pass `output_path` to also write the full result to a file.'
-].join('\n')
+export const SEARCH_DESCRIPTION =
+  'Search via configured SearXNG with advanced filters; use `web_search` for ordinary lookups. `source: "auto"` falls back to Firecrawl. `output_path` saves results.'
 
 export const SEARCH_PARAMETERS = {
   type: 'object',
@@ -189,25 +181,25 @@ export const SEARCH_PARAMETERS = {
     categories: {
       type: 'array',
       items: { type: 'string' },
-      description: 'SearXNG categories, e.g. ["general"], ["news"], ["science"]. Defaults to the configured categories. `web_status` lists what the instance serves.'
+      description: 'Category filters (e.g. ["news"]); defaults to configured categories. Use `web_status` to list available categories.'
     },
     engines: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Restrict to specific SearXNG engines by name, e.g. ["braveapi","arxiv"]. Defaults to all enabled engines. `web_status` lists them.'
+      description: 'Restrict to named engines (e.g. ["braveapi"]); defaults to all enabled. Use `web_status` to list engines.'
     },
-    language: { type: 'string', description: 'Language filter such as "en", "de", "en-US". Defaults to the configured language, if any.' },
-    pageno: { type: 'integer', description: 'Result page (1-based, default 1).' },
-    time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Only results published within this window, when the engines support it.' },
-    safesearch: { type: 'integer', enum: [0, 1, 2], description: 'Safe-search level: 0 off, 1 moderate, 2 strict. Defaults to the instance setting.' },
+    language: { type: 'string', description: 'Language code (e.g. "en-US"); defaults to configured language.' },
+    pageno: { type: 'integer', description: '1-based result page (default 1).' },
+    time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Publication window, if supported by the engine.' },
+    safesearch: { type: 'integer', enum: [0, 1, 2], description: '0 off, 1 moderate, 2 strict; defaults to instance setting.' },
     source: {
       type: 'string',
       enum: ['auto', 'searxng', 'firecrawl'],
-      description: 'Which backend answers. auto (default) tries SearXNG, then Firecrawl search when SearXNG fails.'
+      description: 'Backend; auto (default) falls back from SearXNG to Firecrawl.'
     },
     limit: { type: 'integer', description: 'Maximum sources to return (1-50).' },
     include_answers: { type: 'boolean', description: 'Include SearXNG answer/instant-answer text when the instance supplies it (default true).' },
-    output_path: { type: 'string', description: 'Directory (or file) to also write the full result to. Relative paths resolve against the session working directory.' }
+    output_path: { type: 'string', description: 'Directory or file path for a saved copy.' }
   },
   required: ['query'],
   additionalProperties: false
@@ -358,18 +350,8 @@ export function createSearchTool(pluginConfig: unknown, host?: HostContextLike):
 
 /* ─────────────────────────── web_scrape ─────────────────────────── */
 
-export const SCRAPE_DESCRIPTION = [
-  'Scrape one or more web pages with the configured self-hosted Firecrawl instance.',
-  '',
-  'One URL uses a single scrape; two or more use Firecrawl\'s batch scrape, so the instance runs them concurrently',
-  'and the whole call waits for one job instead of running N scrapes in sequence. This is the fastest path for',
-  'reading several pages at once.',
-  '',
-  'Formats: markdown (default), html, links, screenshot (returns an image URL), summary (needs an LLM on the instance),',
-  'and json (structured extraction — pass `extract`, which is Firecrawl v2 only).',
-  '',
-  'Long pages are written to disk in full and previewed in the result; `save_to` forces saving for every page.'
-].join('\n')
+export const SCRAPE_DESCRIPTION =
+  'Fetch one or more pages via Firecrawl. Supports markdown, HTML, links, images, screenshots, summaries, product data, and v2 JSON extraction (`extract`). Long results are saved; `save_to` saves every page.'
 
 export const SCRAPE_PARAMETERS = {
   type: 'object',
@@ -377,12 +359,12 @@ export const SCRAPE_PARAMETERS = {
     urls: {
       type: 'array',
       items: { type: 'string' },
-      description: 'URLs to scrape (http/https). One URL is a single scrape; two or more use batch scrape.'
+      description: 'One or more http(s) page URLs.'
     },
     formats: {
       type: 'array',
       items: { type: 'string', enum: ['markdown', 'html', 'rawHtml', 'links', 'images', 'screenshot', 'summary', 'json', 'product'] },
-      description: 'What to return per page. Defaults to the configured formats (usually ["markdown"]). "json" requires `extract`.'
+      description: 'Per-page formats; defaults to plugin settings. `json` requires `extract`.'
     },
     extract: {
       type: 'object',
@@ -391,17 +373,17 @@ export const SCRAPE_PARAMETERS = {
         schema: { type: 'object', additionalProperties: true, description: 'JSON Schema for the extracted object.' }
       },
       required: ['prompt'],
-      description: 'Structured extraction (Firecrawl v2 only): returns a JSON object per page shaped by `schema`.'
+      description: 'Extract structured data (Firecrawl v2); optionally define its output schema.'
     },
-    only_main_content: { type: 'boolean', description: 'Drop navigation, footers and boilerplate (default from the plugin config, usually true).' },
+    only_main_content: { type: 'boolean', description: 'Exclude navigation and boilerplate; defaults to plugin settings.' },
     include_tags: { type: 'array', items: { type: 'string' }, description: 'CSS selectors to keep (e.g. [".article-body"]).' },
     exclude_tags: { type: 'array', items: { type: 'string' }, description: 'CSS selectors to remove (e.g. ["nav","footer"]).' },
     wait_for_ms: { type: 'integer', description: 'Wait this long after load before capturing (milliseconds).' },
     proxy: { type: 'string', enum: ['auto', 'basic', 'stealth', 'enhanced'], description: 'Proxy mode for the fetch (v2 only).' },
     mobile: { type: 'boolean', description: 'Emulate a mobile device (v2 only).' },
     timeout_ms: { type: 'integer', description: 'Per-page scrape timeout handed to Firecrawl (milliseconds).' },
-    save_to: { type: 'string', description: 'Directory to write every page into (relative paths resolve against the session working directory).' },
-    max_chars: { type: 'integer', description: 'Inline characters per page before the rest is cut (the full body is still saved).' }
+    save_to: { type: 'string', description: 'Directory to save every page.' },
+    max_chars: { type: 'integer', description: 'Inline character limit per page; full content is saved when truncated.' }
   },
   required: ['urls'],
   additionalProperties: false
@@ -563,22 +545,15 @@ export function createScrapeTool(pluginConfig: unknown, host?: HostContextLike):
 
 /* ─────────────────────────── web_map ─────────────────────────── */
 
-export const MAP_DESCRIPTION = [
-  'List the URLs of a website through the configured Firecrawl instance.',
-  '',
-  'Use it before scraping a documentation site or a blog so you scrape the right pages instead of guessing.',
-  '`search` narrows the map to URLs matching a phrase. The inline list is bounded; the complete list is written',
-  'to the session working directory when it is longer.',
-  '',
-  'This only discovers URLs — it does not fetch page content. Use web_scrape (or web_crawl) for that.'
-].join('\n')
+export const MAP_DESCRIPTION =
+  'Discover site URLs without fetching content. Use `search` to filter; oversized lists are saved. Fetch selected pages with `web_scrape` or crawl the site with `web_crawl`.'
 
 export const MAP_PARAMETERS = {
   type: 'object',
   properties: {
-    url: { type: 'string', description: 'Site root or section URL to map.' },
-    search: { type: 'string', description: 'Only return URLs relevant to this phrase (server-side filtering).' },
-    limit: { type: 'integer', description: 'Maximum URLs to collect (1-1000, default 200).' },
+    url: { type: 'string', description: 'Site root or section URL.' },
+    search: { type: 'string', description: 'Filter discovered URLs by phrase.' },
+    limit: { type: 'integer', description: 'Maximum URLs (1-1000, default 200).' },
     include_subdomains: { type: 'boolean', description: 'Include subdomains of the target host.' },
     ignore_query_parameters: { type: 'boolean', description: 'Treat URLs differing only by query string as one page.' },
     sitemap: { type: 'string', enum: ['include', 'skip', 'only'], description: 'How to use the site\'s sitemap.' }
@@ -671,21 +646,14 @@ export function createMapTool(pluginConfig: unknown, host?: HostContextLike): Re
 
 /* ─────────────────────────── web_crawl ─────────────────────────── */
 
-export const CRAWL_DESCRIPTION = [
-  'Crawl a website with the configured Firecrawl instance: discover pages under a URL, scrape each one, and return them.',
-  '',
-  'A crawl is a job. This tool starts it and polls until it settles or the job timeout passes; when it times out you get',
-  'the live `job_id`, and calling the tool again with that `job_id` resumes polling without starting a second crawl.',
-  'Use `limit` to bound spend — a crawl without a limit can walk a whole site.',
-  '',
-  'Prefer web_map + web_scrape when you already know which pages you need: a crawl costs one scrape per page.'
-].join('\n')
+export const CRAWL_DESCRIPTION =
+  'Crawl and scrape pages under a URL. Set `limit` to bound work. If it times out, pass the returned `job_id` to resume. For selected pages, use `web_map` + `web_scrape`.'
 
 export const CRAWL_PARAMETERS = {
   type: 'object',
   properties: {
-    url: { type: 'string', description: 'Crawl start URL.' },
-    limit: { type: 'integer', description: 'Maximum pages to crawl (default 10, hard cap 500). Always set one.' },
+    url: { type: 'string', description: 'Start URL; omit only when resuming with `job_id`.' },
+    limit: { type: 'integer', description: 'Maximum pages (default 10, hard cap 500); set to bound work.' },
     max_depth: { type: 'integer', description: 'Maximum link depth from the start URL.' },
     include_paths: { type: 'array', items: { type: 'string' }, description: 'Only crawl paths matching these patterns (e.g. ["/docs/.*"]).' },
     exclude_paths: { type: 'array', items: { type: 'string' }, description: 'Skip paths matching these patterns.' },
@@ -860,22 +828,15 @@ export function createCrawlTool(pluginConfig: unknown, host?: HostContextLike): 
 
 /* ─────────────────────────── web_status ─────────────────────────── */
 
-export const STATUS_DESCRIPTION = [
-  'Report what the configured SearXNG and Firecrawl instances actually expose.',
-  '',
-  'Use it before relying on a feature: it lists the SearXNG version, categories and engines, and probes Firecrawl\'s v1 and',
-  'v2 endpoints and response formats (a self-hosted instance without an LLM cannot produce `summary`; structured',
-  '`json` extraction needs v2). It also says whether an API key is configured — never the key.',
-  '',
-  'Results are cached for ten minutes; pass `refresh: true` to re-probe now.'
-].join('\n')
+export const STATUS_DESCRIPTION =
+  'Check SearXNG/Firecrawl availability, versions, engines, formats, and API-key presence (never the key). Results cache for 10 minutes; set `refresh` to re-probe.'
 
 export const STATUS_PARAMETERS = {
   type: 'object',
   properties: {
     include: { type: 'string', enum: ['all', 'searxng', 'firecrawl'], description: 'Which service to report (default all).' },
-    refresh: { type: 'boolean', description: 'Ignore the capability cache and probe both services now.' },
-    probe_formats: { type: 'boolean', description: 'Also fetch a test page to prove which formats work (default true). That costs the instance one plain scrape plus an extraction and a summary, so set false to skip those requests.' }
+    refresh: { type: 'boolean', description: 'Bypass the 10-minute cache and re-probe.' },
+    probe_formats: { type: 'boolean', description: 'Test scrape, extraction, and summary support (default true; set false to skip these requests).' }
   },
   required: [],
   additionalProperties: false

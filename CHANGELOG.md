@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.1 — 2026-11-13
+
+### Changed
+
+- Shortened model-facing tool descriptions and parameter guidance to reduce active tool context.
+
 ## 0.1.0 — 2026-11-03
 
 First release.

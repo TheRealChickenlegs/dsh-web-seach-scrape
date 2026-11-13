@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-search-scrape",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-hosted web search and scrape for DeepSeek Harness: SearXNG-powered search and Firecrawl-powered scrape, map, crawl and batch through the ctx.web seam and first-class agent tools.",
   "type": "module",
   "main": "lib/index.js",

@@ -13,7 +13,7 @@ export const PLUGIN_ID = 'dsh-web-search-scrape'
 export const PLUGIN_DISPLAY_NAME = 'Web Search & Scrape'
 
 /** Plugin version reported in the startup line. Keep in sync with package.json. */
-export const PLUGIN_VERSION = '0.1.0'
+export const PLUGIN_VERSION = '0.1.1'
 
 /** The id this plugin registers its search provider under (`web.searchProvider`). */
 export const SEARCH_PROVIDER_ID = 'searxng'
